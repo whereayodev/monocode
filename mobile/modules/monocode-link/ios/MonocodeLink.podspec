@@ -14,5 +14,10 @@ Pod::Spec.new do |s|
   s.resource_bundles = { 'MonocodeTranscriptAssets' => ['Resources/transcript-artwork.json'] }
   s.vendored_frameworks = 'MonocodeLinkCore.xcframework'
   s.frameworks = 'Security', 'SystemConfiguration', 'UIKit', 'CoreText'
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  # Personal builds on an SDK older than iOS 27.1 (scripts/testflight.sh).
+  if ENV['MONOCODE_NO_HINGE'] == '1'
+    xcconfig['SWIFT_ACTIVE_COMPILATION_CONDITIONS'] = '$(inherited) MONOCODE_NO_HINGE'
+  end
+  s.pod_target_xcconfig = xcconfig
 end

@@ -11,6 +11,9 @@ final class TypingPostureView: ExpoView {
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     isUserInteractionEnabled = false
+    // Personal builds on an SDK older than iOS 27.1 (no UIHingeInteraction)
+    // set MONOCODE_NO_HINGE and go without fold-to-type; see scripts/testflight.sh.
+#if !MONOCODE_NO_HINGE
     if #available(iOS 27.1, *) {
       addInteraction(UIHingeInteraction { [weak self] _, update in
         guard let self, let hinge = update.hinge else { return }
@@ -34,6 +37,7 @@ final class TypingPostureView: ExpoView {
         self.updatePosture()
       })
     }
+#endif
   }
 
   override func didMoveToWindow() {

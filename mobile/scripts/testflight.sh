@@ -34,7 +34,15 @@ fi
 echo "› Building $MONOCODE_BUNDLE_ID ($MONOCODE_BUILD_NUMBER) for team $MONOCODE_APPLE_TEAM_ID"
 [[ -d node_modules ]] || npm ci
 node scripts/build-native-link.mjs ios --device-only
+# Fold-to-type needs the iOS 27.1 SDK; on an older Xcode it is left out
+# (read by modules/monocode-link/ios/MonocodeLink.podspec at pod install).
+sdk="$(xcrun --sdk iphoneos --show-sdk-version)"
+if [[ "$(printf '%s\n27.1\n' "$sdk" | sort -V | head -1)" != 27.1 ]]; then
+  echo "› iOS SDK $sdk is older than 27.1: building without fold-to-type"
+  export MONOCODE_NO_HINGE=1
+fi
 CI=1 npx expo prebuild --platform ios --clean
+[[ -d ios/MonoCode.xcworkspace ]] || { echo "✗ pod install failed (see above)"; exit 1; }
 
 xcodebuild \
   -workspace ios/MonoCode.xcworkspace \

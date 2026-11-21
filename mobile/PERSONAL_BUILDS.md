@@ -40,6 +40,10 @@ MONOCODE_APPLE_TEAM_ID=ABCDE12345 \
 scripts/testflight.sh
 ```
 
+With an Xcode older than 27.1 (no iOS 27.1 SDK) the script builds without
+fold-to-type on iPhone Duo (`UIHingeInteraction`), which is the only part
+that needs 27.1; everything else, dictation included, is unaffected.
+
 The script builds the Rust transport, runs `expo prebuild`, archives a Release
 build signed by the team (automatic signing via the Apple account in Xcode →
 Settings → Accounts), and uploads it to TestFlight. `SKIP_UPLOAD=1` only exports
