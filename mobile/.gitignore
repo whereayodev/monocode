@@ -41,3 +41,6 @@ yarn-error.*
 /android
 modules/monocode-link/ios/*.xcframework/
 modules/monocode-link/android/src/main/jniLibs/
+
+# personal TestFlight builds
+build/

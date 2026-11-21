@@ -1,0 +1,77 @@
+name: Mobile TestFlight (personal)
+
+# Builds the iOS app signed with your own Apple Developer team and uploads it
+# to TestFlight. Set up once (see mobile/PERSONAL_BUILDS.md):
+#   variables: MONOCODE_BUNDLE_ID, MONOCODE_APPLE_TEAM_ID
+#   secrets:   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (App Store Connect API key with the Admin role, so Xcode can manage signing)
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to TestFlight
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    runs-on: macos-26
+    timeout-minutes: 120
+    env:
+      MONOCODE_BUNDLE_ID: ${{ vars.MONOCODE_BUNDLE_ID }}
+      MONOCODE_APPLE_TEAM_ID: ${{ vars.MONOCODE_APPLE_TEAM_ID }}
+      # Above anything uploaded by hand, which uses the date and time.
+      MONOCODE_BUILD_NUMBER: ${{ format('3{0}', github.run_number) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check configuration
+        run: |
+          for name in MONOCODE_BUNDLE_ID MONOCODE_APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || { echo "::error::Set the $name repository variable"; exit 1; }
+          done
+          [ -n "${{ secrets.ASC_KEY_P8 }}" ] || { echo "::error::Set the ASC_KEY_P8, ASC_KEY_ID and ASC_ISSUER_ID secrets"; exit 1; }
+      - name: Select the newest Xcode
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install Rust
+        run: |
+          command -v rustup || brew install rustup
+          echo "$(brew --prefix rustup)/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - run: rustup default stable && rustup target add aarch64-apple-ios
+      - run: npm ci
+        working-directory: mobile
+      - name: App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc/key.p8"
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/key.p8" >> "$GITHUB_ENV"
+      - name: Build and upload
+        working-directory: mobile
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          SKIP_UPLOAD: ${{ inputs.upload && '0' || '1' }}
+        run: scripts/testflight.sh
+      - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.upload }}
+        with:
+          name: MonoCode-ipa
+          path: mobile/build/testflight/export/*.ipa
